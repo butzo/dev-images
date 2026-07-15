@@ -24,6 +24,11 @@ RUN pacman -Syu --noconfirm && \
 
 USER dev
 
+# AUR packages (not in the official repos, so pacman above can't see them)
+RUN paru -S --noconfirm --needed claude-code && \
+    paru -Scc --noconfirm
+
+
 # Rust stable toolchain baked into the image (weekly rebuild tracks stable);
 # nightly/targets can still be added ad hoc inside containers via rustup.
 RUN rustup default stable && rustup component add clippy rustfmt

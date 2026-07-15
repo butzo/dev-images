@@ -21,10 +21,15 @@ RUN echo "cache-bust: ${CACHE_BUST}" && \
       # terminals I actually use (terminfo only; alacritty's is in ncurses)
       kitty-terminfo \
       # LSPs / formatters / linters (mirrors host nvim config)
-      clang rust-analyzer ruff lua-language-server \
+      clang ruff lua-language-server \
       tinymist marksman yaml-language-server taplo-cli bash-language-server \
       vscode-json-languageserver shellcheck shfmt stylua typstyle prettier \
       systemd-lsp \
+      # rustup ships only shims here — no toolchain, so base stays toolchain-free.
+      # aio installs the toolchain + the rust-analyzer component. The repo
+      # rust-analyzer is not usable: it depends on rust-src -> rust, which drags
+      # the whole toolchain into base and conflicts with rustup in aio.
+      rustup \
       wl-clipboard \
     && pacman -Scc --noconfirm
 
@@ -43,8 +48,10 @@ RUN useradd -m -u ${UID} -s /bin/zsh ${USERNAME} && \
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
 
-# paru (AUR helper) — built from AUR as the unprivileged user
-RUN git clone --depth 1 https://aur.archlinux.org/paru.git /tmp/paru && \
+# paru (AUR helper) — installed from AUR as the unprivileged user.
+# paru-bin, not paru: the source package needs cargo to compile, and base has
+# no rust toolchain (only rustup shims, which error without a default toolchain).
+RUN git clone --depth 1 https://aur.archlinux.org/paru-bin.git /tmp/paru && \
     cd /tmp/paru && makepkg -si --noconfirm && \
     rm -rf /tmp/paru && paru --version
 

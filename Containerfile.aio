@@ -12,8 +12,7 @@ RUN pacman -Syu --noconfirm && \
       jdk-openjdk maven gradle \
       # Julia
       julia \
-      # Rust via rustup (toolchain installed below; rust-analyzer in base)
-      rustup \
+      # Rust: rustup itself comes from base; the toolchain is installed below.
       # Typst (tinymist LSP already in base)
       typst \
       # C/C++ native (gcc/make already in base-devel; add the extras)
@@ -31,7 +30,8 @@ RUN paru -S --noconfirm --needed claude-code && \
 
 # Rust stable toolchain baked into the image (weekly rebuild tracks stable);
 # nightly/targets can still be added ad hoc inside containers via rustup.
-RUN rustup default stable && rustup component add clippy rustfmt
+RUN rustup default stable && \
+    rustup component add clippy rustfmt rust-analyzer
 
 # Julia LSP into the image's global depot
 RUN julia -e 'using Pkg; Pkg.add("LanguageServer")' || \

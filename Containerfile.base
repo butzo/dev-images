@@ -48,12 +48,24 @@ RUN useradd -m -u ${UID} -s /bin/zsh ${USERNAME} && \
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
 
-# paru (AUR helper) — installed from AUR as the unprivileged user.
-# paru-bin, not paru: the source package needs cargo to compile, and base has
-# no rust toolchain (only rustup shims, which error without a default toolchain).
-RUN git clone --depth 1 https://aur.archlinux.org/paru-bin.git /tmp/paru && \
+# paru (AUR helper) — built from source as the unprivileged user.
+#
+# Not paru-bin: its prebuilt binary links libalpm.so.15 while pacman now ships
+# libalpm.so.16, and its `libalpm.so>=14` dep does not catch that, so it
+# installs cleanly and then dies at runtime. Source paru is rebuilt against the
+# current soname (hence its -2 pkgrel).
+#
+# Building it needs cargo, which base deliberately lacks. Pull a minimal
+# toolchain in and drop it again inside this one RUN, so it never reaches the
+# final layer and base stays toolchain-free.
+RUN rustup toolchain install stable --profile minimal && \
+    rustup default stable && \
+    git clone --depth 1 https://aur.archlinux.org/paru.git /tmp/paru && \
     cd /tmp/paru && makepkg -si --noconfirm && \
-    rm -rf /tmp/paru && paru --version
+    cd / && rm -rf /tmp/paru && \
+    rustup toolchain uninstall stable && \
+    rm -rf "$HOME/.cargo/registry" "$HOME/.cargo/git" && \
+    paru --version
 
 # AUR-only LSPs (not in the official repos, so pacman above can't see them)
 RUN paru -S --noconfirm --needed basedpyright-bin jdtls && \

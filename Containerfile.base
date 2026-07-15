@@ -43,10 +43,6 @@ RUN useradd -m -u ${UID} -s /bin/zsh ${USERNAME} && \
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
 
-# Claude Code CLI (native installer, lands in ~/.local/bin)
-RUN curl -fsSL https://claude.ai/install.sh | bash
-ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
-
 # paru (AUR helper) — built from AUR as the unprivileged user
 RUN git clone --depth 1 https://aur.archlinux.org/paru.git /tmp/paru && \
     cd /tmp/paru && makepkg -si --noconfirm && \

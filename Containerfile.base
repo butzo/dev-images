@@ -49,7 +49,7 @@ RUN git clone --depth 1 https://aur.archlinux.org/paru.git /tmp/paru && \
     rm -rf /tmp/paru && paru --version
 
 # AUR-only LSPs (not in the official repos, so pacman above can't see them)
-RUN paru -S --noconfirm --needed basedpyright jdtls && \
+RUN paru -S --noconfirm --needed basedpyright-bin jdtls && \
     paru -Scc --noconfirm
 
 ENV EDITOR=nvim

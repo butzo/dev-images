@@ -1,0 +1,49 @@
+name: build images
+
+on:
+  schedule:
+    - cron: "0 4 * * 1" # Mondays 04:00 UTC
+  workflow_dispatch: # manual "rebuild now" button in the Actions tab
+  push:
+    paths:
+      - "Containerfile.*"
+      - ".github/workflows/build.yml"
+
+permissions:
+  packages: write
+  contents: read
+
+env:
+  REGISTRY: ghcr.io/butzo
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: build base (no cache -> fresh pacman -Syu)
+        run: |
+          docker build --no-cache \
+            --build-arg CACHE_BUST=$(date +%F) \
+            -f Containerfile.base \
+            -t $REGISTRY/arch-dev:base \
+            -t $REGISTRY/arch-dev:base-$(date +%F) .
+
+      - name: build aio
+        run: |
+          docker build \
+            --build-arg BASE=$REGISTRY/arch-dev:base \
+            -f Containerfile.aio \
+            -t $REGISTRY/arch-dev:aio \
+            -t $REGISTRY/arch-dev:aio-$(date +%F) .
+
+      - name: push
+        run: |
+          docker push --all-tags $REGISTRY/arch-dev

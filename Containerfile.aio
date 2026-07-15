@@ -1,0 +1,33 @@
+# arch-dev:aio — base + all project toolchains.
+# Split into per-language images later if/when this gets annoying.
+ARG BASE=ghcr.io/butzo/arch-dev:base
+FROM ${BASE}
+
+USER root
+RUN pacman -Syu --noconfirm && \
+    pacman -S --noconfirm --needed \
+      # Python
+      python python-pip uv \
+      # Java
+      jdk-openjdk maven gradle \
+      # Julia
+      julia \
+      # Rust via rustup (toolchain installed below; rust-analyzer in base)
+      rustup \
+      # Typst (tinymist LSP already in base)
+      typst \
+      # C/C++ native (gcc/make already in base-devel; add the extras)
+      cmake ninja gdb clang-tools-extra \
+      # serial terminal
+      picocom \
+    && pacman -Scc --noconfirm
+
+USER dev
+
+# Rust stable toolchain baked into the image (weekly rebuild tracks stable);
+# nightly/targets can still be added ad hoc inside containers via rustup.
+RUN rustup default stable && rustup component add clippy rustfmt
+
+# Julia LSP into the image's global depot
+RUN julia -e 'using Pkg; Pkg.add("LanguageServer")' || \
+    echo "WARN: Julia LanguageServer install failed (non-fatal)"

@@ -1,0 +1,15 @@
+# .gitignore for your ~/.claude config repo
+# Track: settings.json, skills/, agents/, CLAUDE.md
+# Ignore: credentials + all runtime/session state
+
+.credentials.json
+history.jsonl
+projects/
+todos/
+shell-snapshots/
+statsig/
+cache/
+downloads/
+plugins/repos/
+*.log
+*.tmp

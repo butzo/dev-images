@@ -1,0 +1,56 @@
+# arch-dev:base — everything the editor/shell environment needs.
+# Toolchains live in derived images (see Containerfile.aio).
+FROM docker.io/archlinux:base-devel
+
+# Bust layer cache on scheduled rebuilds (see justfile / CI)
+ARG CACHE_BUST=unset
+RUN echo "cache-bust: ${CACHE_BUST}" && \
+    pacman -Syu --noconfirm && \
+    pacman -S --noconfirm --needed \
+      # core
+      git zsh neovim sudo openssh \
+      ripgrep fd fzf lazygit yazi just \
+      # CLI quality of life
+      bat glow eza tree zoxide tealdeer \
+      ncdu nload btop htop progress iperf3 hyperfine \
+      jq yq rsync less wget tmux \
+      zip unzip 7zip zstd xz \
+      man-db man-pages texinfo \
+      # sandbox layer for Claude Code
+      bubblewrap \
+      # terminals I actually use (terminfo only; alacritty's is in ncurses)
+      kitty-terminfo \
+      # LSPs / formatters / linters (mirrors host nvim config)
+      clang rust-analyzer basedpyright ruff lua-language-server jdtls \
+      tinymist marksman yaml-language-server taplo-cli bash-language-server \
+      vscode-json-languageserver shellcheck shfmt stylua typstyle prettier \
+      systemd-lsp \
+      wl-clipboard \
+    && pacman -Scc --noconfirm
+
+# Locales: en_US + de_DE
+RUN sed -i -e 's/^#en_US.UTF-8/en_US.UTF-8/' -e 's/^#de_DE.UTF-8/de_DE.UTF-8/' \
+      /etc/locale.gen && locale-gen && \
+    echo 'LANG=en_US.UTF-8' > /etc/locale.conf
+
+# Non-root user matching host UID 1000 (pairs with --userns=keep-id)
+ARG USERNAME=dev
+ARG UID=1000
+RUN useradd -m -u ${UID} -s /bin/zsh ${USERNAME} && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/${USERNAME} && \
+    chmod 0440 /etc/sudoers.d/${USERNAME}
+
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
+
+# Claude Code CLI (native installer, lands in ~/.local/bin)
+RUN curl -fsSL https://claude.ai/install.sh | bash
+ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
+
+# yay (AUR helper) — built from AUR as the unprivileged user
+RUN git clone --depth 1 https://aur.archlinux.org/yay-bin.git /tmp/yay && \
+    cd /tmp/yay && makepkg -si --noconfirm && \
+    rm -rf /tmp/yay && yay --version
+
+ENV EDITOR=nvim
+CMD ["/bin/zsh"]

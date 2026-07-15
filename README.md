@@ -5,7 +5,7 @@ template, and the personal-config snippets. Push this as
 `github.com/butzo/dev-images`.
 
 ```
-Containerfile.base      arch-dev:base  (shell/editor env, LSPs, yay, claude, bwrap)
+Containerfile.base      arch-dev:base  (shell/editor env, LSPs, paru, claude, bwrap)
 Containerfile.aio       arch-dev:aio   (base + python, java, julia, rust, typst, C/C++)
 justfile                local image builds (CI does the weekly ones)
 .github/workflows/      weekly ghcr.io builds
@@ -67,15 +67,15 @@ smoke-tests bwrap — watch for its OK/WARNING line), and drops you in zsh.
 
 ## Daily
 
-| Command | Effect |
-|---|---|
-| `just dev` | start if needed + enter zsh (the one you use) |
-| `just stop` | stop the container (state persists) |
-| `just rebuild` | recreate container (new mounts/config, fresh .claude copy) |
-| `just update` | pull newest weekly image, then recreate |
-| `just raw-enter` | plain `podman exec` bypass if the CLI misbehaves |
+| Command          | Effect                                                     |
+| ---------------- | ---------------------------------------------------------- |
+| `just dev`       | start if needed + enter zsh (the one you use)              |
+| `just stop`      | stop the container (state persists)                        |
+| `just rebuild`   | recreate container (new mounts/config, fresh .claude copy) |
+| `just update`    | pull newest weekly image, then recreate                    |
+| `just raw-enter` | plain `podman exec` bypass if the CLI misbehaves           |
 
-Inside: `nvim .`, `claude`, ad-hoc `yay -S`/`pacman -S` (dies with the
+Inside: `nvim .`, `claude`, ad-hoc `paru -S`/`pacman -S` (dies with the
 container — promote keepers into Containerfile.aio and let CI rebuild).
 
 ## Security model

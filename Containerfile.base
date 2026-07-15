@@ -47,14 +47,14 @@ WORKDIR /home/${USERNAME}
 RUN curl -fsSL https://claude.ai/install.sh | bash
 ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
 
-# yay (AUR helper) — built from AUR as the unprivileged user
-RUN git clone --depth 1 https://aur.archlinux.org/yay-bin.git /tmp/yay && \
-    cd /tmp/yay && makepkg -si --noconfirm && \
-    rm -rf /tmp/yay && yay --version
+# paru (AUR helper) — built from AUR as the unprivileged user
+RUN git clone --depth 1 https://aur.archlinux.org/paru.git /tmp/paru && \
+    cd /tmp/paru && makepkg -si --noconfirm && \
+    rm -rf /tmp/paru && paru --version
 
 # AUR-only LSPs (not in the official repos, so pacman above can't see them)
-RUN yay -S --noconfirm --needed basedpyright jdtls && \
-    yay -Scc --noconfirm
+RUN paru -S --noconfirm --needed basedpyright jdtls && \
+    paru -Scc --noconfirm
 
 ENV EDITOR=nvim
 CMD ["/bin/zsh"]

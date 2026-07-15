@@ -1,0 +1,31 @@
+// Committed, portable devcontainer config.
+// Personal mounts (dotfiles, .claude) are added at `up` time via
+// ~/.config/devcontainer/mounts.flags — see the project justfile.
+{
+  "name": "arch-dev",
+  "image": "ghcr.io/butzo/arch-dev:aio",
+
+  "remoteUser": "dev",
+  "updateRemoteUserUID": false,
+
+  "runArgs": [
+    "--userns=keep-id"
+  ],
+
+  "containerEnv": {
+    "TZ": "Europe/Berlin",
+    "TERM": "xterm-256color"
+  },
+
+  "remoteEnv": {
+    "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}"
+  },
+
+  "postCreateCommand": ".devcontainer/post-create.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": []
+    }
+  }
+}

@@ -1,0 +1,30 @@
+# Devcontainer driving. Personal mounts live in
+# ~/.config/devcontainer/mounts.flags (dotfiles), injected at up-time
+# so the committed devcontainer.json stays portable.
+
+personal := `grep -v '^#' ~/.config/devcontainer/mounts.flags 2>/dev/null | tr '\n' ' ' || true`
+
+# start-if-needed + enter: the daily one
+dev: up enter
+
+up:
+    devcontainer up --workspace-folder . {{personal}}
+
+enter:
+    devcontainer exec --workspace-folder . zsh
+
+stop:
+    podman ps --filter "label=devcontainer.local_folder={{justfile_directory()}}" -q \
+      | xargs -r podman stop
+
+# recreate container (picks up newly pulled image / changed config/mounts)
+rebuild:
+    devcontainer up --workspace-folder . --remove-existing-container {{personal}}
+
+# pull latest weekly image, then recreate
+update: && rebuild
+    podman pull ghcr.io/butzo/arch-dev:aio
+
+# escape hatch if the devcontainer CLI misbehaves
+raw-enter:
+    podman exec -it $(podman ps --filter "label=devcontainer.local_folder={{justfile_directory()}}" -q | head -1) zsh

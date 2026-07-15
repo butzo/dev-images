@@ -1,0 +1,9 @@
+--mount type=bind,source=/home/chris/.config/nvim,target=/home/dev/.config/nvim,readonly
+--mount type=bind,source=/home/chris/.config/zsh,target=/home/dev/.config/zsh,readonly
+--mount type=bind,source=/home/chris/.config/yazi,target=/home/dev/.config/yazi,readonly
+--mount type=bind,source=/home/chris/.config/lazygit,target=/home/dev/.config/lazygit,readonly
+--mount type=bind,source=/home/chris/.config/git,target=/home/dev/.config/git,readonly
+--mount type=bind,source=/home/chris/.claude,target=/claude-seed,readonly
+--mount type=volume,source=nvim-data,target=/home/dev/.local/share/nvim
+# Auth: run `claude login` once per container (state stays container-local),
+# or use ANTHROPIC_API_KEY via remoteEnv in devcontainer.json.

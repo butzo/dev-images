@@ -4,11 +4,24 @@
 
 personal := `grep -v '^#' ~/.config/devcontainer/mounts.flags 2>/dev/null | tr '\n' ' ' || true`
 
+proj  := file_name(justfile_directory())
+masks := "--mount type=tmpfs,target=/workspaces/" + proj + "/confidential " + \
+         "--mount type=tmpfs,target=/workspaces/" + proj + "/.git/git-crypt"
+
+# fails (non-zero) if the repo is unlocked but masks are missing
+_guard:
+    @if [ -e .git/git-crypt/keys ]; then \
+      case "{{masks}}" in \
+        *"/confidential"*) : ;; \
+        *) echo "ERROR: git-crypt unlocked but confidential mask missing" >&2; exit 1 ;; \
+      esac; \
+    fi
+
 # start-if-needed + enter: the daily one
 dev: up enter
 
-up:
-    devcontainer up --workspace-folder . {{personal}}
+up: _guard
+    devcontainer up --workspace-folder . {{personal}} {{masks}}
 
 enter:
     devcontainer exec --workspace-folder . zsh
@@ -28,3 +41,10 @@ update: && rebuild
 # escape hatch if the devcontainer CLI misbehaves
 raw-enter:
     podman exec -it $(podman ps --filter "label=devcontainer.local_folder={{justfile_directory()}}" -q | head -1) zsh
+
+verify-isolation:
+    @devcontainer exec --workspace-folder . bash -c '\
+      test -z "$(ls -A confidential 2>/dev/null)" && echo "OK  confidential/ empty" || { echo "FAIL confidential/ visible"; exit 1; }; \
+      test -z "$(ls -A .git/git-crypt 2>/dev/null)" && echo "OK  .git/git-crypt empty" || { echo "FAIL key present"; exit 1; }; \
+      git show HEAD:confidential/$(git ls-tree --name-only HEAD confidential/ | head -1 | xargs basename) 2>/dev/null | head -c 8 | grep -q GITCRYPT && echo "OK  blobs ciphertext" || echo "WARN could not confirm ciphertext"'
+

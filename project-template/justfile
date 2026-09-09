@@ -6,6 +6,7 @@ personal := `grep -v '^#' ~/.config/devcontainer/mounts.flags 2>/dev/null | tr '
 
 proj  := file_name(justfile_directory())
 masks := "--mount type=tmpfs,target=/workspaces/" + proj + "/confidential " + \
+         "--mount type=tmpfs,target=/workspaces/" + proj + "/Confidential " + \
          "--mount type=tmpfs,target=/workspaces/" + proj + "/.git/git-crypt"
 
 # fails (non-zero) if the repo is unlocked but masks are missing

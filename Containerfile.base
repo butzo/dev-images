@@ -48,6 +48,11 @@ RUN useradd -m -u ${UID} -s /bin/zsh ${USERNAME} && \
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
 
+# Pre-create XDG dirs as dev. Otherwise podman creates them as root when it
+# makes mountpoints for nested mounts (~/.config/nvim, ~/.local/share/nvim),
+# and tools can't write there (e.g. zinit -> ~/.local/share/zinit).
+RUN mkdir -p ~/.config ~/.cache ~/.local/share ~/.local/state
+
 # paru (AUR helper) — built from source as the unprivileged user.
 #
 # Not paru-bin: its prebuilt binary links libalpm.so.15 while pacman now ships

@@ -1,111 +1,151 @@
-# devcontainer — container kit
+# devcontainer - A containerized dev environment for AI agents
 
-One repo holds everything container-related: the images, the project
-template, and the personal-config snippets. Push this as
-`github.com/butzo/devcontainer`.
+Arch Linux dev containers for working with coding agents such as Claude Code.
+Podman walls off the project, bubblewrap sandboxes the agent's commands inside
+the container, your dotfiles are mounted read-only, and git-crypt confidential
+folders are masked so nothing in the container can read them.
 
 ```
-Containerfile.base      arch-dev:base  (shell/editor env, LSPs, paru, claude, bwrap)
-Containerfile.aio       arch-dev:aio   (base + python, java, julia, rust, typst, C/C++)
-justfile                local image builds (CI does the weekly ones)
-.github/workflows/      weekly ghcr.io builds
-project-template/       copy into each project repo (.devcontainer/ + justfile)
-snippets/               goes into your dotfiles / .claude repo (see below)
+Containerfile.base    arch-dev:base   shell/editor env, LSPs, paru, bwrap
+Containerfile.aio     arch-dev:aio    base + Python, Java, Julia, Rust, Typst, C/C++, Claude Code
+justfile              local image builds
+.github/workflows/    weekly image builds to ghcr.io
+project-template/     copy into a project: .devcontainer/ + justfile
+snippets/             host-side config: mounts, Claude Code settings
 ```
 
-Images are published to `ghcr.io/butzo/arch-dev:{base,aio}` plus dated
-tags (`aio-YYYY-MM-DD`) for pinning. Weekly rebuild: Mondays 04:00 UTC,
-`--no-cache` so pacman is actually fresh; also rebuilds on Containerfile
-changes and manually via the Actions tab (workflow_dispatch).
+## Quick start
 
----
-
-## One-time setup
-
-1. **Push this repo** to GitHub as `butzo/devcontainer`.
-2. **Trigger the workflow** once manually (Actions → build images → Run).
-3. **Make the packages public**: GitHub → your profile → Packages →
-   `arch-dev` → settings → visibility public. (Otherwise: `podman login
-   ghcr.io` with a read:packages token on every machine that pulls.)
-4. **Install the devcontainer CLI** on the host:
-   AUR `devcontainer-cli` or `npm i -g @devcontainers/cli`.
-   If your setup needs it, add `--docker-path podman` to the template
-   justfile recipes (test first — `just raw-enter` always works regardless).
-5. **Personal mounts**: copy `snippets/mounts.flags` to
-   `~/.config/devcontainer/mounts.flags`, adjust the `${HOME}` paths.
-   All dotfile mounts are read-only; host `~/.claude` mounts ro at
-   `/claude-seed`. Keep this file in your dotfiles repo.
-6. **.claude as a git repo**: `cd ~/.claude && git init`, add
-   `snippets/claude-repo.gitignore` as `.gitignore` (tracks
-   settings.json/skills/agents/CLAUDE.md; ignores credentials and all
-   session state), commit, push to a private `butzo/claude-config`.
-7. **Sandbox settings**: merge `snippets/claude-settings.json` into
-   `~/.claude/settings.json` — enables the bwrap sandbox with
-   `allowUnsandboxedCommands: false` and `failIfUnavailable: true`
-   (fail closed) plus an egress allowlist. Verify key names against your
-   Claude Code version (`claude config`) — the schema evolves.
-8. Optional: export `ANTHROPIC_API_KEY` in your host env if you want
-   containers to use a scoped API key instead of `claude login`.
-
-## Per project
+After the [one-time setup](#one-time-setup):
 
 ```sh
-cp -r ~/devcontainer/project-template/.devcontainer ~/projects/foo/
-cp    ~/devcontainer/project-template/justfile      ~/projects/foo/
-cd ~/projects/foo && git add .devcontainer justfile   # commit them
+cp -r ~/devcontainer/project-template/{.devcontainer,justfile} ~/projects/foo/
+cd ~/projects/foo
 just dev
 ```
 
-`.devcontainer/` + justfile are project infrastructure and live committed
-in the project repo (VS Code collaborators consume the same
-devcontainer.json; it contains no personal paths — those come from your
-mounts.flags at up-time).
+Commit `.devcontainer/` and `justfile` in the project. devcontainer.json holds
+no personal paths, so collaborators (VS Code included) use the same file.
 
-First `just dev` pulls the image, creates the container, runs
-post-create (copies your .claude checkout in, populates tldr cache,
-smoke-tests bwrap — watch for its OK/WARNING line), and drops you in zsh.
+The first `just dev` pulls the image, creates the container and runs
+`post-create.sh`: it copies your Claude Code config in, fills the tldr cache
+and checks that bwrap works (look for its `OK` or `WARNING` line). Then it
+verifies the confidential masks and opens zsh.
 
-## Daily
+## One-time setup
 
-| Command          | Effect                                                     |
-| ---------------- | ---------------------------------------------------------- |
-| `just dev`       | start if needed + enter zsh (the one you use)              |
-| `just stop`      | stop the container (state persists)                        |
-| `just rebuild`   | recreate container (new mounts/config, fresh .claude copy) |
-| `just update`    | pull newest weekly image, then recreate                    |
-| `just raw-enter` | plain `podman exec` bypass if the CLI misbehaves           |
+1. **Install the tools** on the host: podman, [just](https://github.com/casey/just)
+   and the devcontainer CLI (AUR `devcontainer-cli` or
+   `npm i -g @devcontainers/cli`). The template justfile passes
+   `--docker-path podman`; change `engine` there to use Docker.
+2. **Personal mounts**: copy `snippets/mounts.env` to
+   `~/.config/devcontainer/mounts.env` and keep it in your dotfiles. Each
+   `DEVC_MOUNT_n` fills one of ten mount slots in devcontainer.json; unset
+   slots become an empty tmpfs. Paths use `${HOME}`, which expands when the
+   justfile sources the file.
+3. **Claude Code sandbox**: merge `snippets/claude-settings.json` into
+   `~/.claude/settings.json`. It enables the bwrap sandbox fail-closed
+   (`failIfUnavailable: true`, `allowUnsandboxedCommands: false`) with a
+   network allowlist. Check the key names against your Claude Code version.
+4. **Claude Code config in git** (optional): `git init` in `~/.claude` with
+   `snippets/claude-repo.gitignore` as `.gitignore`, so you can `git diff`
+   what an agent changed inside a container.
+5. **Auth**: run `claude login` in each container, or export
+   `ANTHROPIC_API_KEY` on the host and uncomment `remoteEnv` in
+   devcontainer.json.
 
-Inside: `nvim .`, `claude`, ad-hoc `paru -S`/`pacman -S` (dies with the
-container — promote keepers into Containerfile.aio and let CI rebuild).
+The template uses the images at `ghcr.io/butzo/arch-dev`. To build your own,
+see [Your own images](#your-own-images).
+
+## Commands
+
+### In a project (`project-template/justfile`)
+
+| Command                 | What it does                                                        |
+| ----------------------- | ------------------------------------------------------------------- |
+| `just dev`              | start the container if needed, verify the masks, open zsh           |
+| `just up`               | create or start the container                                       |
+| `just enter`            | open zsh in the running container                                   |
+| `just verify-isolation` | check that every confidential mask is an empty tmpfs                |
+| `just stop`             | stop the container; its state is kept                               |
+| `just rebuild`          | recreate the container (new image, devcontainer.json, mounts.env)   |
+| `just update`           | pull the newest image, then `rebuild`                               |
+| `just raw-enter`        | `podman exec` straight in if the devcontainer CLI misbehaves        |
+
+`up` and `rebuild` refuse to start if git-crypt is unlocked but a mask is
+missing from devcontainer.json.
+
+Inside the container: `nvim .`, `claude`, and ad-hoc `paru -S` or `pacman -S`.
+Packages installed that way disappear with the container; add the ones you
+keep to `Containerfile.aio`.
+
+### In this repo (`justfile`)
+
+| Command                              | What it does                             |
+| ------------------------------------ | ---------------------------------------- |
+| `just build`                         | build `base`, then `aio` (the default)   |
+| `just build-base` / `just build-aio` | build one image                          |
+| `just rebuild`                       | build both images without layer cache    |
+| `just push`                          | push `base` and `aio` to the registry    |
+| `just pull`                          | pull `aio`                               |
+| `just prune`                         | remove dangling images                   |
+
+## Images
+
+`base` is the shell and editor environment: zsh, neovim, LSPs and formatters,
+CLI tools, paru and bubblewrap, with a `dev` user at UID 1000. `aio` adds the
+language toolchains and Claude Code.
+
+Tags are `base` and `aio`, plus dated `base-YYYY-MM-DD` and `aio-YYYY-MM-DD`
+for pinning. CI rebuilds every Monday at 04:00 UTC with `--no-cache` so
+pacman packages are fresh, on every push that changes a Containerfile or the
+workflow, and on demand from the Actions tab.
+
+### Your own images
+
+1. Fork this repo and replace `ghcr.io/butzo` in `justfile`,
+   `Containerfile.aio`, `.github/workflows/build.yml` and `project-template/`.
+2. Run the workflow once from the Actions tab.
+3. Make the `arch-dev` package public (profile → Packages → `arch-dev` →
+   settings), or `podman login ghcr.io` with a `read:packages` token on every
+   machine that pulls.
+
+## Confidential folders
+
+For repos that use git-crypt, devcontainer.json mounts an empty tmpfs over
+`confidential/`, `Confidential/` and `.git/git-crypt`. Neither the plaintext
+nor the key is visible inside the container, however it is started. The masks
+use `notmpcopyup`: without it podman copies the host files into the tmpfs.
+`just dev` runs `verify-isolation` before opening a shell.
 
 ## Security model
 
-- **podman** = boundary around the project environment (only workspace +
-  ro dotfiles visible; `--userns=keep-id` so file ownership matches host).
-- **bwrap** (Claude Code sandbox) = boundary around agent commands inside
-  the container; fail-closed via `failIfUnavailable`.
-- **.claude flow**: host checkout → ro `/claude-seed` mount → full copy
-  (incl. `.git`) into container at create. Inspect agent-era changes with
-  `git status`/`git diff` inside; worth keeping → redo on host checkout,
-  commit/push there. Container copy is disposable; no push credentials
-  inside.
-- **Git**: identity mounted ro (commits work); SSH keys/agent never enter
-  the container; pushes happen from the host.
-- **Auth**: `ANTHROPIC_API_KEY` via remoteEnv, or `claude login` per
-  container (state dies on rebuild).
+- **podman** bounds the project: only the workspace and the read-only mounts
+  are visible. `--userns=keep-id` keeps file ownership in line with the host.
+- **bwrap** (the Claude Code sandbox) bounds agent commands inside the
+  container and fails closed.
+- **Git**: your identity is mounted read-only, so commits work. SSH keys and
+  the agent never enter the container; push from the host.
+- **Claude Code config**: host `~/.claude` is mounted read-only at
+  `/claude-seed` and copied into the container when it is created. The copy is
+  disposable: inspect changes with `git diff` inside and redo the ones you
+  want on the host. The whole directory is copied, including
+  `.credentials.json` if it exists.
 
-## Known warts
+## Known issues
 
-- devcontainer CLI is Docker-first; podman works but keep `raw-enter`
-  handy. `updateRemoteUserUID` is disabled because keep-id handles UIDs.
-- `--mount ...,readonly` suffix support varies by CLI version — verify the
-  nvim mount is actually ro (`touch` a file in it from inside).
-- bwrap-in-podman needs nested unprivileged userns; post-create tells you
-  immediately. Surgical fix: custom seccomp profile; blunt test:
-  `--security-opt seccomp=unconfined` in runArgs.
-- Clipboard: host→container paste works via kitty. Container-nvim → host
-  clipboard uses OSC 52 (enabled conditionally in the nvim config when
-  $container or $SSH_TTY is set). If kitty blocks writes, set
-  `clipboard_control write-clipboard write-primary` in kitty.conf.
-- After first sessions, audit `git status` in the .claude repo and extend
-  its .gitignore for any state dirs your Claude Code version adds.
+- The devcontainer CLI is Docker-first. Podman works, but keep
+  `just raw-enter` handy. `updateRemoteUserUID` is off because keep-id
+  handles UIDs.
+- `devcontainer up --mount` only accepts `type=bind|volume,source,target`
+  (no `readonly`, no `tmpfs`), which is why mounts live in slots in
+  devcontainer.json. Check that a read-only mount really is one by `touch`ing
+  a file in it.
+- bwrap inside podman needs nested unprivileged user namespaces;
+  post-create reports whether it works. The fix is a custom seccomp profile;
+  to test, add `--security-opt seccomp=unconfined` to `runArgs`.
+- Symlinks inside a mounted directory dangle in the container. Stow config
+  directories as folder links, not per file.
+- Clipboard: pasting into the container works through the terminal. Copying
+  out of nvim uses OSC 52; in kitty, allow it with
+  `clipboard_control write-clipboard write-primary`.

@@ -1,51 +1,60 @@
-# Devcontainer driving. Personal mounts live in
-# ~/.config/devcontainer/mounts.flags (dotfiles), injected at up-time
-# so the committed devcontainer.json stays portable.
+# Devcontainer driving.
+#   .devcontainer/devcontainer.json    committed: image, confidential masks, mount slots
+#   ~/.config/devcontainer/mounts.env  dotfiles: personal mounts (DEVC_MOUNT_n=...)
+# The CLI's --mount flag rejects readonly/tmpfs, so every mount lives in
+# devcontainer.json; this file only loads mounts.env into the env before `up`.
 
-personal := `grep -v '^#' ~/.config/devcontainer/mounts.flags 2>/dev/null | tr '\n' ' ' || true`
+engine := "podman"
+mounts_env := "~/.config/devcontainer/mounts.env"
+load := "if [ -f " + mounts_env + " ]; then set -a; . " + mounts_env + "; set +a; else echo 'note: no " + mounts_env + ", starting without personal mounts' >&2; fi;"
 
-proj  := file_name(justfile_directory())
-masks := "--mount type=tmpfs,target=/workspaces/" + proj + "/confidential " + \
-         "--mount type=tmpfs,target=/workspaces/" + proj + "/Confidential " + \
-         "--mount type=tmpfs,target=/workspaces/" + proj + "/.git/git-crypt"
-
-# fails (non-zero) if the repo is unlocked but masks are missing
+# fails (non-zero) if the repo is unlocked but devcontainer.json lacks a mask
 _guard:
     @if [ -e .git/git-crypt/keys ]; then \
-      case "{{masks}}" in \
-        *"/confidential"*) : ;; \
-        *) echo "ERROR: git-crypt unlocked but confidential mask missing" >&2; exit 1 ;; \
-      esac; \
+      for t in /confidential /Confidential /.git/git-crypt; do \
+        grep -qF "type=tmpfs,target=/workspaces/\${localWorkspaceFolderBasename}$t,notmpcopyup\"" .devcontainer/devcontainer.json \
+          || { echo "ERROR: git-crypt unlocked but mask for $t (with notmpcopyup) missing in devcontainer.json" >&2; exit 1; }; \
+      done; \
     fi
 
-# start-if-needed + enter: the daily one
-dev: up enter
+# start-if-needed + check isolation + enter: the daily one
+dev: up verify-isolation enter
 
+# create or start the container
 up: _guard
-    devcontainer up --workspace-folder . {{personal}} {{masks}}
+    {{ load }} devcontainer up --docker-path {{ engine }} --workspace-folder .
 
+# open zsh in the running container
 enter:
-    devcontainer exec --workspace-folder . zsh
+    devcontainer exec --docker-path {{ engine }} --workspace-folder . zsh
 
+# stop the container (its state is kept)
 stop:
-    podman ps --filter "label=devcontainer.local_folder={{justfile_directory()}}" -q \
-      | xargs -r podman stop
+    {{ engine }} ps --filter "label=devcontainer.local_folder={{ justfile_directory() }}" -q \
+      | xargs -r {{ engine }} stop
 
-# recreate container (picks up newly pulled image / changed config/mounts)
-rebuild:
-    devcontainer up --workspace-folder . --remove-existing-container {{personal}}
+# recreate container (picks up newly pulled image / changed devcontainer.json / mounts.env)
+rebuild: _guard
+    {{ load }} devcontainer up --docker-path {{ engine }} --workspace-folder . --remove-existing-container
 
 # pull latest weekly image, then recreate
 update: && rebuild
-    podman pull ghcr.io/butzo/arch-dev:aio
+    {{ engine }} pull ghcr.io/butzo/arch-dev:aio
 
 # escape hatch if the devcontainer CLI misbehaves
 raw-enter:
-    podman exec -it $(podman ps --filter "label=devcontainer.local_folder={{justfile_directory()}}" -q | head -1) zsh
+    {{ engine }} exec -it $({{ engine }} ps --filter "label=devcontainer.local_folder={{ justfile_directory() }}" -q | head -1) zsh
 
+# each mask must be a tmpfs, readable, and empty (errors count as FAIL, not OK)
 verify-isolation:
-    @devcontainer exec --workspace-folder . bash -c '\
-      test -z "$(ls -A confidential 2>/dev/null)" && echo "OK  confidential/ empty" || { echo "FAIL confidential/ visible"; exit 1; }; \
-      test -z "$(ls -A .git/git-crypt 2>/dev/null)" && echo "OK  .git/git-crypt empty" || { echo "FAIL key present"; exit 1; }; \
-      git show HEAD:confidential/$(git ls-tree --name-only HEAD confidential/ | head -1 | xargs basename) 2>/dev/null | head -c 8 | grep -q GITCRYPT && echo "OK  blobs ciphertext" || echo "WARN could not confirm ciphertext"'
-
+    @devcontainer exec --docker-path {{ engine }} --workspace-folder . bash -c '\
+      rc=0; \
+      for p in confidential Confidential .git/git-crypt; do \
+        fs=$(stat -f -c %T "$p" 2>&1); \
+        if [ "$fs" != tmpfs ]; then echo "FAIL $p/ not a tmpfs mask ($fs)"; rc=1; \
+        elif ! entries=$(ls -A "$p" 2>&1); then echo "FAIL $p/ unreadable: $entries"; rc=1; \
+        elif [ -n "$entries" ]; then echo "FAIL $p/ has content (tmpcopyup?)"; rc=1; \
+        else echo "OK   $p/ empty tmpfs"; fi; \
+      done; \
+      git show HEAD:confidential/$(git ls-tree --name-only HEAD confidential/ | head -1 | xargs basename) 2>/dev/null | head -c 8 | grep -q GITCRYPT && echo "OK   blobs ciphertext" || echo "WARN could not confirm ciphertext"; \
+      exit $rc'

@@ -42,7 +42,8 @@ verifies the confidential masks and opens zsh.
    `~/.config/devcontainer/mounts.env` and keep it in your dotfiles. Each
    `DEVC_MOUNT_n` fills one of ten mount slots in devcontainer.json; unset
    slots become an empty tmpfs. Paths use `${HOME}`, which expands when the
-   justfile sources the file.
+   justfile sources the file. Slot 2 mounts the `nvim-data` volume; fill it
+   with `just refresh-nvim-data` from this repo.
 3. **Claude Code sandbox**: merge `snippets/claude-settings.json` into
    `~/.claude/settings.json`. It enables the bwrap sandbox fail-closed
    (`failIfUnavailable: true`, `allowUnsandboxedCommands: false`) with a
@@ -89,6 +90,7 @@ keep to `Containerfile.aio`.
 | `just push`                          | push `base` and `aio` to the registry    |
 | `just pull`                          | pull `aio`                               |
 | `just prune`                         | remove dangling images                   |
+| `just refresh-nvim-data`             | fill the `nvim-data` volume              |
 
 ## Images
 

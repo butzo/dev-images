@@ -35,3 +35,12 @@ pull:
 # remove dangling images
 prune:
     podman image prune -f
+
+# install nvim plugins and treesitter parsers into the nvim-data volume,
+# which containers mount read-only; rerun after changing the nvim config
+refresh-nvim-data:
+    podman run --rm \
+      -v nvim-data:/home/dev/.local/share/nvim \
+      -v ~/.config/nvim:/home/dev/.config/nvim:ro \
+      {{registry}}/arch-dev:aio \
+      nvim --headless "+Lazy! restore" "+TSUpdateSync" +qa

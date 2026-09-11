@@ -36,7 +36,9 @@
   ],
   "containerEnv": {
     "TZ": "Europe/Berlin",
-    "TERM": "xterm-256color"
+    "TERM": "xterm-256color",
+    // Shown by the `container` segment in ~/.p10k.zsh
+    "DEVCONTAINER_NAME": "${localWorkspaceFolderBasename}"
   },
   // "remoteEnv": {
   //   "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}"

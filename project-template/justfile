@@ -6,7 +6,7 @@
 
 engine := "podman"
 mounts_env := "~/.config/devcontainer/mounts.env"
-load := "if [ -f " + mounts_env + " ]; then set -a; . " + mounts_env + "; set +a; else echo 'note: no " + mounts_env + ", starting without personal mounts' >&2; fi;"
+load := "if [ -f " + mounts_env + " ]; then set -a; . " + mounts_env + "; set +a; else printf '\\033[33mNOTE\\033[0m no " + mounts_env + ", starting without personal mounts\\n' >&2; fi;"
 
 # fails (non-zero) if the repo is unlocked but devcontainer.json lacks a mask
 _guard:
@@ -20,13 +20,14 @@ _guard:
 # start-if-needed + check isolation + enter: the daily one
 dev: up verify-isolation enter
 
-# create or start the container
+# create or start the container (CLI output is shown only on failure)
 up: _guard
-    {{ load }} devcontainer up --docker-path {{ engine }} --workspace-folder .
+    @{{ load }} out=$(devcontainer up --docker-path {{ engine }} --workspace-folder . 2>&1) \
+      || { printf '%s\n' "$out" >&2; exit 1; }
 
 # open zsh in the running container
 enter:
-    devcontainer exec --docker-path {{ engine }} --workspace-folder . zsh
+    @devcontainer exec --docker-path {{ engine }} --workspace-folder . zsh
 
 # stop the container (its state is kept)
 stop:
@@ -48,13 +49,19 @@ raw-enter:
 # each mask must be a tmpfs, readable, and empty (errors count as FAIL, not OK)
 verify-isolation:
     @devcontainer exec --docker-path {{ engine }} --workspace-folder . bash -c '\
+      ok()   { printf "\033[32mOK  \033[0m %s\n" "$*"; }; \
+      warn() { printf "\033[33mWARN\033[0m %s\n" "$*"; }; \
+      fail() { printf "\033[31mFAIL\033[0m %s\n" "$*"; rc=1; }; \
       rc=0; \
       for p in confidential Confidential .git/git-crypt; do \
         fs=$(stat -f -c %T "$p" 2>&1); \
-        if [ "$fs" != tmpfs ]; then echo "FAIL $p/ not a tmpfs mask ($fs)"; rc=1; \
-        elif ! entries=$(ls -A "$p" 2>&1); then echo "FAIL $p/ unreadable: $entries"; rc=1; \
-        elif [ -n "$entries" ]; then echo "FAIL $p/ has content (tmpcopyup?)"; rc=1; \
-        else echo "OK   $p/ empty tmpfs"; fi; \
+        if [ "$fs" != tmpfs ]; then fail "$p/ not a tmpfs mask ($fs)"; \
+        elif ! entries=$(ls -A "$p" 2>&1); then fail "$p/ unreadable: $entries"; \
+        elif [ -n "$entries" ]; then fail "$p/ has content (tmpcopyup?)"; \
+        else ok "$p/ empty tmpfs"; fi; \
       done; \
-      git show HEAD:confidential/$(git ls-tree --name-only HEAD confidential/ | head -1 | xargs basename) 2>/dev/null | head -c 8 | grep -q GITCRYPT && echo "OK   blobs ciphertext" || echo "WARN could not confirm ciphertext"; \
+      f=$(git ls-tree -r --name-only HEAD -- confidential Confidential 2>/dev/null | head -1); \
+      if [ -z "$f" ]; then warn "no committed confidential files to check"; \
+      elif git cat-file blob "HEAD:$f" 2>/dev/null | head -c 10 | grep -qa GITCRYPT; then ok "committed blobs are ciphertext"; \
+      else warn "could not confirm ciphertext ($f)"; fi; \
       exit $rc'

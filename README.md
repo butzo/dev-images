@@ -62,16 +62,16 @@ see [Your own images](#your-own-images).
 
 ### In a project (`project-template/justfile`)
 
-| Command                 | What it does                                                        |
-| ----------------------- | ------------------------------------------------------------------- |
-| `just dev`              | start the container if needed, verify the masks, open zsh           |
-| `just up`               | create or start the container                                       |
-| `just enter`            | open zsh in the running container                                   |
-| `just verify-isolation` | check that every confidential mask is an empty tmpfs                |
-| `just stop`             | stop the container; its state is kept                               |
-| `just rebuild`          | recreate the container (new image, devcontainer.json, mounts.env)   |
-| `just update`           | pull the newest image, then `rebuild`                               |
-| `just raw-enter`        | `podman exec` straight in if the devcontainer CLI misbehaves        |
+| Command                 | What it does                                                      |
+| ----------------------- | ----------------------------------------------------------------- |
+| `just dev`              | start the container if needed, verify the masks, open zsh         |
+| `just up`               | create or start the container                                     |
+| `just enter`            | open zsh in the running container                                 |
+| `just verify-isolation` | check that every confidential mask is an empty tmpfs              |
+| `just stop`             | stop the container; its state is kept                             |
+| `just rebuild`          | recreate the container (new image, devcontainer.json, mounts.env) |
+| `just update`           | pull the newest image, then `rebuild`                             |
+| `just raw-enter`        | `podman exec` straight in if the devcontainer CLI misbehaves      |
 
 `up` and `rebuild` refuse to start if git-crypt is unlocked but a mask is
 missing from devcontainer.json.
@@ -82,15 +82,15 @@ keep to `Containerfile.aio`.
 
 ### In this repo (`justfile`)
 
-| Command                              | What it does                             |
-| ------------------------------------ | ---------------------------------------- |
-| `just build`                         | build `base`, then `aio` (the default)   |
-| `just build-base` / `just build-aio` | build one image                          |
-| `just rebuild`                       | build both images without layer cache    |
-| `just push`                          | push `base` and `aio` to the registry    |
-| `just pull`                          | pull `aio`                               |
-| `just prune`                         | remove dangling images                   |
-| `just refresh-nvim-data`             | fill the `nvim-data` volume              |
+| Command                              | What it does                           |
+| ------------------------------------ | -------------------------------------- |
+| `just build`                         | build `base`, then `aio` (the default) |
+| `just build-base` / `just build-aio` | build one image                        |
+| `just rebuild`                       | build both images without layer cache  |
+| `just push`                          | push `base` and `aio` to the registry  |
+| `just pull`                          | pull `aio`                             |
+| `just prune`                         | remove dangling images                 |
+| `just refresh-nvim-data`             | fill the `nvim-data` volume            |
 
 ## Images
 

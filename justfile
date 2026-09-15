@@ -50,3 +50,9 @@ refresh-nvim-data:
         nvim --headless "+Lazy! restore" "+TSUpdateSync" +qa && \
         test -d ~/.local/share/nvim/lazy/lazy.nvim || \
         { echo "refresh-nvim-data: lazy.nvim missing from volume" >&2; exit 1; }'
+
+# install the Claudian wrapper (Obsidian's "Claude CLI path") into ~/.local/bin.
+# A copy, not a symlink: the host runs it, so edits here (possibly by an agent
+# in a devcontainer of this repo) only take effect when installed again.
+install-claudian:
+    install -Dm755 claudian/claudian-podman.js ~/.local/bin/claudian-podman.js

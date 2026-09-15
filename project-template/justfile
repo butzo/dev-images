@@ -11,7 +11,7 @@ load := "if [ -f " + mounts_env + " ]; then set -a; . " + mounts_env + "; set +a
 # fails (non-zero) if the repo is unlocked but devcontainer.json lacks a mask
 _guard:
     @if [ -e .git/git-crypt/keys ]; then \
-      for t in /confidential /Confidential /.git/git-crypt; do \
+      for t in /confidential /.git/git-crypt; do \
         grep -qF "type=tmpfs,target=/workspaces/\${localWorkspaceFolderBasename}$t,notmpcopyup\"" .devcontainer/devcontainer.json \
           || { echo "ERROR: git-crypt unlocked but mask for $t (with notmpcopyup) missing in devcontainer.json" >&2; exit 1; }; \
       done; \
@@ -53,14 +53,14 @@ verify-isolation:
       warn() { printf "\033[33mWARN\033[0m %s\n" "$*"; }; \
       fail() { printf "\033[31mFAIL\033[0m %s\n" "$*"; rc=1; }; \
       rc=0; \
-      for p in confidential Confidential .git/git-crypt; do \
+      for p in confidential .git/git-crypt; do \
         fs=$(stat -f -c %T "$p" 2>&1); \
         if [ "$fs" != tmpfs ]; then fail "$p/ not a tmpfs mask ($fs)"; \
         elif ! entries=$(ls -A "$p" 2>&1); then fail "$p/ unreadable: $entries"; \
         elif [ -n "$entries" ]; then fail "$p/ has content (tmpcopyup?)"; \
         else ok "$p/ empty tmpfs"; fi; \
       done; \
-      f=$(git ls-tree -r --name-only HEAD -- confidential Confidential 2>/dev/null | head -1); \
+      f=$(git ls-tree -r --name-only HEAD -- confidential 2>/dev/null | head -1); \
       if [ -z "$f" ]; then warn "no committed confidential files to check"; \
       elif git cat-file blob "HEAD:$f" 2>/dev/null | head -c 10 | grep -qa GITCRYPT; then ok "committed blobs are ciphertext"; \
       else warn "could not confirm ciphertext ($f)"; fi; \

@@ -115,7 +115,7 @@ workflow, and on demand from the Actions tab.
 ## Confidential folders
 
 For repos that use git-crypt, devcontainer.json mounts an empty tmpfs over
-`confidential/`, `Confidential/` and `.git/git-crypt`. Neither the plaintext
+`confidential/` and `.git/git-crypt`. Neither the plaintext
 nor the key is visible inside the container, however it is started. The masks
 use `notmpcopyup`: without it podman copies the host files into the tmpfs.
 `just dev` runs `verify-isolation` before opening a shell.

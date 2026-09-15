@@ -16,8 +16,8 @@ RUN echo "cache-bust: ${CACHE_BUST}" && \
       jq yq rsync less wget tmux \
       zip unzip 7zip zstd xz \
       man-db man-pages texinfo \
-      # sandbox layer for Claude Code
-      bubblewrap \
+      # sandbox layer for Claude Code (socat: its network proxy)
+      bubblewrap socat \
       # terminals I actually use (terminfo only; alacritty's is in ncurses)
       kitty-terminfo \
       # LSPs / formatters / linters (mirrors host nvim config)

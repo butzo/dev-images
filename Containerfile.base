@@ -51,7 +51,7 @@ WORKDIR /home/${USERNAME}
 # Pre-create XDG dirs as dev. Otherwise podman creates them as root when it
 # makes mountpoints for nested mounts (~/.config/nvim, ~/.local/share/nvim),
 # and tools can't write there (e.g. zinit -> ~/.local/share/zinit).
-RUN mkdir -p ~/.config ~/.cache ~/.local/share ~/.local/state
+RUN mkdir -p ~/.config ~/.cache ~/.local/share/nvim ~/.local/state
 
 # paru (AUR helper) — built from source as the unprivileged user.
 #
